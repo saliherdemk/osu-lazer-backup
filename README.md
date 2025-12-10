@@ -7,6 +7,8 @@ It looks `client.realm` file from your installation and fetches all of your beat
 
 In restore, it iterates over provided file and downloads beatmaps using [mino api](https://catboy.best/).
 
+I'm not actively checking the status of the mino api. If anything breaks, create an issue.
+
 ## ScreenShot
 
 <img src="./media/restore.png">
