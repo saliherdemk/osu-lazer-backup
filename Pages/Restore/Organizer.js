@@ -6,6 +6,7 @@ class Organizer {
     this.savePath = null;
     this.remainings = [];
     this.cursor = 0;
+    this.retryCount = 0;
   }
 
   start() {
@@ -60,7 +61,7 @@ class Organizer {
 
   generateRemainingsFile() {
     const { data } = this.getFinalData();
-    this.remainings = data.slice(this.cursor);
+    this.remainings = data.slice(this.cursor + 1);
     document.getElementById("remaining-label").innerText =
       `Found ${this.remainings.length} beatmapIds.`;
   }
@@ -90,6 +91,14 @@ class Organizer {
       `Beatmaps will be downloaded to ${path}`;
   }
 
+  increaseRetryCount() {
+    this.retryCount += 1;
+  }
+
+  resetRetryCount() {
+    this.retryCount = 0;
+  }
+
   getFinalData() {
     let result = this.backupData;
     if (this.skipData) {
@@ -100,5 +109,9 @@ class Organizer {
 
   getSavePath() {
     return this.savePath;
+  }
+
+  getRetryCount() {
+    return this.retryCount;
   }
 }

@@ -66,31 +66,64 @@ addClickEvent("download-btn", async function () {
   organizer.start();
   const { data, totalNum } = organizer.getFinalData();
   const savePath = organizer.getSavePath();
-  let rateLimit = 120;
 
-  for (const [index, id] of data.entries()) {
-    organizer.setCursor(index);
-    if (!organizer.isStarted()) {
-      return;
-    }
-    if (!(index % 100)) {
-      const stop = await checkDailyLimit();
-      if (stop) return;
-    }
-    if (rateLimit <= 0) {
-      addDownloadInfo("Reached the api limit. Waiting for 60 seconds.", true);
-      await sleep(60);
-    }
+  let i = 0;
+
+  while (i < data.length && organizer.isStarted()) {
+    organizer.setCursor(i);
+    const id = data[i];
     const res = await window.restoreAPI.downloadBeatmapset(id, savePath);
-    if (res.status == 200) {
-      rateLimit = res.rateLimitRemaining;
+    const success = await handleApiResponse(res, id, i, totalNum);
+    if (success) {
+      i += 1;
+      organizer.resetRetryCount();
     }
-    handleApiResponse(res, id, index, totalNum);
-
-    await sleep(1);
   }
-  organizer.stop("Completed", false);
+  if (i == data.length) {
+    organizer.stop("Completed", false);
+  } else if (!organizer.isStarted()) {
+    organizer.stop("Cancelled.");
+  }
 });
+
+async function handleApiResponse(response, id, index, totalData) {
+  switch (response.status) {
+    case 200:
+      addDownloadInfo(
+        `Id ${id} successfully downloaded. ${index + 1}/${totalData}`,
+      );
+      await sleep(1);
+      return true;
+
+    case 404:
+      addDownloadInfo(`Skipping id ${id}. No beatmapset found.`, true);
+      return true;
+
+    case 429:
+      organizer.increaseRetryCount();
+
+      if (organizer.getRetryCount() > 2) {
+        organizer.stop(
+          "Too many rate limit errors. Wait a few minutes before trying again.",
+        );
+        return false;
+      }
+
+      addDownloadInfo(
+        `Rate limit exceeded while downloading ${id}. Waiting for 30 seconds.`,
+        true,
+      );
+
+      await sleep(30);
+      return false;
+
+    default:
+      organizer.stop(
+        "Unable to reach the server. Save your remaining beatmaps and try again later.",
+      );
+      return false;
+  }
+}
 
 function sleep(s) {
   return new Promise((resolve) => setTimeout(resolve, 1000 * s));
@@ -105,42 +138,6 @@ function addDownloadInfo(text, isError = false) {
   container.scrollTop = container.scrollHeight;
 }
 
-async function checkDailyLimit() {
-  const { status, downloadCount } = await window.restoreAPI.getRateLimits();
-  if (status !== 200) {
-    const stopMsg = `Unable to reach the server. Save your remaining beatmaps and try later.`;
-
-    organizer.stop(stopMsg);
-    return true;
-  }
-
-  if (downloadCount >= 1900) {
-    document.getElementById("rate-limit-day-label").innerText =
-      `${downloadCount} / 2000 (/day)`;
-    const stopMsg =
-      "You are about to exceed daily api limit. Save your remaining beatmaps and continue tomorrow.";
-
-    organizer.stop(stopMsg);
-    return true;
-  }
-  return false;
-}
-
 function addClickEvent(id, func) {
   document.getElementById(id).addEventListener("click", func);
-}
-
-function handleApiResponse(response, id, index, totalData) {
-  if (response.status === 200) {
-    addDownloadInfo(
-      `Id ${id} successfully downloaded. ${index + 1}/${totalData}`,
-    );
-  } else if (response.status === 404) {
-    addDownloadInfo(`Skipping id ${id}. No beatmapset found.`, true);
-  } else {
-    organizer.stop(
-      "Unable to reach the server. Save your remaining beatmaps and try later.",
-    );
-    throw new Error("Server unreachable");
-  }
 }
