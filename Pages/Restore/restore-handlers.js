@@ -3,7 +3,7 @@ const path = require("node:path");
 const fs = require("fs");
 const axios = require("axios");
 
-const DOWNLOAD_URL = "https://dev.catboy.best/d/";
+const DOWNLOAD_URL = "https://catboy.best/d/";
 
 function registerRestoreHandlers() {
   ipcMain.handle("restore-open-file-dialog", async () => {
